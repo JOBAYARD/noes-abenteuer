@@ -1,10 +1,11 @@
-import { ServerMessage } from './messages'
+import { ClientMessage, ServerMessage } from './messages'
 
 type MessageHandler = (msg: ServerMessage) => void
 
 class WsClient {
   private ws: WebSocket | null = null
   private handlers: MessageHandler[] = []
+  private reconnectTimer: number | null = null
 
   connect(url: string): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -12,14 +13,16 @@ class WsClient {
       this.ws.onopen = () => resolve()
       this.ws.onerror = () => reject(new Error('Connection failed'))
       this.ws.onmessage = (event) => {
-        const msg: ServerMessage = JSON.parse(event.data as string)
+        const msg: ServerMessage = JSON.parse(event.data)
         this.handlers.forEach(h => h(msg))
       }
-      this.ws.onclose = () => { this.ws = null }
+      this.ws.onclose = () => {
+        this.ws = null
+      }
     })
   }
 
-  send(msg: object) {
+  send(msg: ClientMessage) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(msg))
     }
@@ -27,11 +30,16 @@ class WsClient {
 
   onMessage(handler: MessageHandler) {
     this.handlers.push(handler)
-    return () => { this.handlers = this.handlers.filter(h => h !== handler) }
+    return () => {
+      this.handlers = this.handlers.filter(h => h !== handler)
+    }
   }
 
   disconnect() {
-    if (this.ws) { this.ws.close(); this.ws = null }
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
   }
 
   get connected(): boolean {

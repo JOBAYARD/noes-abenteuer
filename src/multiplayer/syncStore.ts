@@ -25,6 +25,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => ({
   connect: async (url) => {
     await wsClient.connect(url)
     set({ connected: true })
+
     wsClient.onMessage((msg: ServerMessage) => {
       switch (msg.type) {
         case 'game_state':
