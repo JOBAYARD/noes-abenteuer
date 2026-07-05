@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
 import { MainMenu } from '@/components/MainMenu'
+import { LobbyScreen } from '@/components/LobbyScreen'
 import { GameScene } from '@/world/GameScene'
 import { HUD } from '@/components/HUD'
 import { Dice } from '@/components/Dice'
@@ -8,10 +9,14 @@ import { DirectionChoice } from '@/components/DirectionChoice'
 import { Inventory } from '@/components/Inventory'
 import { CombatOverlay } from '@/components/combat/CombatOverlay'
 import { LootPopup } from '@/components/LootPopup'
+import { CoopHUD } from '@/components/CoopHUD'
+import { ShareLife } from '@/components/ShareLife'
 import { getReachableTiles } from '@/game/movement'
 import { getTileEffect } from '@/game/tileEffects'
 import { generateLoot, shouldDropLoot } from '@/game/loot'
 import { getLevel } from '@/data/levels'
+import { audioManager } from '@/audio/audioManager'
+import { saveGame } from '@/save/saveManager'
 import { Equipment } from '@/types/game'
 
 export function App() {
@@ -19,6 +24,7 @@ export function App() {
   const diceResult = useGameStore((s) => s.diceResult)
   const players = useGameStore((s) => s.players)
   const currentLevel = useGameStore((s) => s.currentLevel)
+  const unlockedLevels = useGameStore((s) => s.unlockedLevels)
   const movePlayer = useGameStore((s) => s.movePlayer)
   const setWaiting = useGameStore((s) => s.setWaiting)
   const loseLife = useGameStore((s) => s.loseLife)
@@ -29,20 +35,35 @@ export function App() {
   const [pendingChoices, setPendingChoices] = useState<string[] | null>(null)
   const [combatActive, setCombatActive] = useState<{ isBoss: boolean } | null>(null)
   const [lootItem, setLootItem] = useState<Equipment | null>(null)
+  const [showLobby, setShowLobby] = useState(false)
 
   const player = players[0]
-  const level = getLevel(currentLevel)
+  const level = currentLevel > 0 && currentLevel <= 10 ? getLevel(currentLevel) : null
+
+  // Audio: play music based on phase
+  useEffect(() => {
+    if (phase === 'menu') {
+      audioManager.playMusic('menu')
+    } else if (phase === 'playing' && level) {
+      audioManager.playMusic(level.theme)
+    } else if (phase === 'combat') {
+      audioManager.playMusic('combat')
+    }
+  }, [phase, currentLevel])
 
   const handleTileEffect = (tileId: string) => {
+    if (!level) return
     const tile = level.tiles.find(t => t.id === tileId)
     if (!tile) return
 
     const effect = getTileEffect(tile.type)
     switch (effect.type) {
       case 'wait':
+        audioManager.playSfx('snail')
         setWaiting(Date.now() + effect.duration)
         break
       case 'advance': {
+        audioManager.playSfx('rocket')
         const next = getReachableTiles(level.tiles, tileId, effect.steps)
         if (next.length === 1) {
           movePlayer(0, next[0])
@@ -56,6 +77,7 @@ export function App() {
         setCombatActive({ isBoss: effect.isBoss })
         break
       case 'loot': {
+        audioManager.playSfx('loot')
         const item = generateLoot(currentLevel)
         setLootItem(item)
         break
@@ -64,8 +86,9 @@ export function App() {
   }
 
   useEffect(() => {
-    if (diceResult === null || !player || pendingChoices || combatActive || lootItem) return
+    if (diceResult === null || !player || pendingChoices || combatActive || lootItem || !level) return
 
+    audioManager.playSfx('dice_roll')
     const reachable = getReachableTiles(level.tiles, player.currentTileId, diceResult)
 
     if (reachable.length === 1) {
@@ -87,14 +110,28 @@ export function App() {
     setCombatActive(null)
 
     if (won) {
+      audioManager.playSfx('victory')
       if (isBoss) {
+        audioManager.playSfx('level_complete')
         completeLevel()
+        // Auto-save
+        if (player) {
+          saveGame({
+            currentLevel: currentLevel + 1,
+            unlockedLevels: [...unlockedLevels, currentLevel + 1],
+            character: player.character,
+            equipment: player.equipment,
+            equippedItems: player.equippedItems as Record<string, Equipment>,
+          })
+        }
       } else if (shouldDropLoot(false)) {
+        audioManager.playSfx('loot')
         const item = generateLoot(currentLevel)
         setLootItem(item)
       }
     } else {
-      const shield = player.equippedItems.shield
+      audioManager.playSfx('defeat')
+      const shield = player?.equippedItems.shield
       if (shield && shield.bonus > 0) {
         equipItem(0, { ...shield, bonus: shield.bonus - 1 })
       } else {
@@ -111,8 +148,12 @@ export function App() {
     setLootItem(null)
   }
 
+  if (showLobby) {
+    return <LobbyScreen onStart={() => setShowLobby(false)} onBack={() => setShowLobby(false)} />
+  }
+
   if (phase === 'menu') {
-    return <MainMenu />
+    return <MainMenu onCoopClick={() => setShowLobby(true)} />
   }
 
   return (
@@ -121,6 +162,8 @@ export function App() {
       <HUD />
       <Inventory />
       <Dice />
+      {players.length > 1 && <CoopHUD />}
+      {players.length > 1 && <ShareLife />}
       {pendingChoices && <DirectionChoice choices={pendingChoices} onChoose={handleChoice} />}
       {combatActive && <CombatOverlay isBoss={combatActive.isBoss} onEnd={handleCombatEnd} />}
       {lootItem && <LootPopup item={lootItem} onClose={handleLootClose} />}
