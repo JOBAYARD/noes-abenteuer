@@ -1,9 +1,10 @@
 import { useGameStore } from '@/store/gameStore'
-import { level1 } from '@/data/levels/level1'
+import { getLevel } from '@/data/levels'
 
 export function HUD() {
   const players = useGameStore((s) => s.players)
   const currentLevel = useGameStore((s) => s.currentLevel)
+  const level = getLevel(currentLevel)
   const player = players[0]
 
   if (!player) return null
@@ -26,7 +27,7 @@ export function HUD() {
           padding: '0.5rem 1rem',
           borderRadius: '8px',
         }}>
-          Level {currentLevel} — {level1.name}
+          Level {currentLevel} — {level.name}
         </div>
       </div>
     </div>

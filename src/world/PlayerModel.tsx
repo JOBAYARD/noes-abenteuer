@@ -2,16 +2,18 @@ import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Mesh, Vector3 } from 'three'
 import { useGameStore } from '@/store/gameStore'
-import { level1 } from '@/data/levels/level1'
+import { getLevel } from '@/data/levels'
 
 export function PlayerModel() {
   const meshRef = useRef<Mesh>(null)
   const players = useGameStore((s) => s.players)
+  const currentLevel = useGameStore((s) => s.currentLevel)
   const player = players[0]
 
   useFrame(() => {
     if (!meshRef.current || !player) return
-    const tile = level1.tiles.find(t => t.id === player.currentTileId)
+    const level = getLevel(currentLevel)
+    const tile = level.tiles.find(t => t.id === player.currentTileId)
     if (!tile) return
 
     const target = new Vector3(tile.position.x, tile.position.y + 0.7, tile.position.z)
