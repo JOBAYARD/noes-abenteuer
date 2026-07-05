@@ -1,0 +1,35 @@
+{
+  "name": "zz_noe",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.1",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "three": "^0.185.1",
+    "zustand": "^5.0.14"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@types/three": "^0.185.0",
+    "@vitejs/plugin-react": "^6.0.3",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3",
+    "vitest": "^4.1.9"
+  }
+}
